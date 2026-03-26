@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+import time
 import chromadb
 from anthropic import Anthropic as AnthropicClient
 from config import (
@@ -9,6 +10,7 @@ from config import (
     LLM_MODEL, TOP_K_RESULTS
 )
 from agent import fetch_news, format_news_context
+from tracker import init_db, log_query
 
 ANALYST_PROMPT = """You are Prism, a senior fintech analyst.
 You have been given real excerpts from fintech company documents and live news.
@@ -78,6 +80,9 @@ def load_client():
 
 def query(question: str) -> str:
     """Query Prism fintech knowledge base."""
+    init_db()
+    start_time = time.time()
+
     collection = load_client()
     results = collection.query(
         query_texts=[question],
@@ -93,19 +98,38 @@ def query(question: str) -> str:
     news_context = format_news_context(news_articles)
 
     client = AnthropicClient(api_key=ANTHROPIC_API_KEY)
+
+    prompt = ANALYST_PROMPT.format(
+        doc_context=doc_context,
+        news_context=news_context,
+        query=question
+    )
+
     message = client.messages.create(
         model=LLM_MODEL,
         max_tokens=1024,
-        messages=[{"role": "user", "content": ANALYST_PROMPT.format(
-            doc_context=doc_context,
-            news_context=news_context,
-            query=question
-        )}]
+        messages=[{"role": "user", "content": prompt}]
     )
-    return message.content[0].text
+
+    response = message.content[0].text
+    response_time = time.time() - start_time
+
+    log_query(
+        mode="fintech",
+        question=question,
+        response=response,
+        input_tokens=message.usage.input_tokens,
+        output_tokens=message.usage.output_tokens,
+        response_time=response_time
+    )
+
+    return response
 
 def query_media(question: str) -> str:
     """Query Prism media knowledge base."""
+    init_db()
+    start_time = time.time()
+
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     MEDIA_CHROMA_DIR = os.path.join(BASE_DIR, "chroma_media_db")
 
@@ -126,16 +150,32 @@ def query_media(question: str) -> str:
     news_context = format_news_context(news_articles)
 
     client = AnthropicClient(api_key=ANTHROPIC_API_KEY)
+
+    prompt = MEDIA_PROMPT.format(
+        doc_context=doc_context,
+        news_context=news_context,
+        query=question
+    )
+
     message = client.messages.create(
         model=LLM_MODEL,
         max_tokens=1024,
-        messages=[{"role": "user", "content": MEDIA_PROMPT.format(
-            doc_context=doc_context,
-            news_context=news_context,
-            query=question
-        )}]
+        messages=[{"role": "user", "content": prompt}]
     )
-    return message.content[0].text
+
+    response = message.content[0].text
+    response_time = time.time() - start_time
+
+    log_query(
+        mode="media",
+        question=question,
+        response=response,
+        input_tokens=message.usage.input_tokens,
+        output_tokens=message.usage.output_tokens,
+        response_time=response_time
+    )
+
+    return response
 
 if __name__ == "__main__":
     questions = [
