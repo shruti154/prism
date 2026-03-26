@@ -1,0 +1,152 @@
+Skip to Content
+PUBLISHED ON: 11 JULY 2025
+Published in: Technology
+From Dashboards to Data Products: How We’re Redesigning Analytics in Monzo Customer Operations
+
+This blog post was accurate when we published it – head to monzo.com or your Monzo app for the most up to date information.
+
+How we used domain-driven design to build a durable foundation for trusted, reusable data at Monzo
+Introduction
+At Monzo, we’re evolving how we think about data. We’re shifting from treating data as a service — reactive and transactional (think, answering questions, building dashboards, delivering analyses) — to treating data as a product: something with a clear purpose, an audience, proactive, and long-lasting.
+This mindset shift supports a bigger ambition: using data as a moat — a durable competitive advantage that helps Monzo build better products, make smarter decisions, and operate more efficiently.
+In the Operations (Ops) collective, we recently applied this thinking to pinpoint our key data products by creating our first-ever data products diagram — a domain-driven map of the key business entities we want to model, and the analytics assets that support them. This post shares how we approached it, what we learned, and why it’s such a powerful foundation for the future.
+Intro the Ops Collective and What We Do!
+The Ops collective at Monzo is the backbone of our customer experience, encompassing functions from front-line Customer Operations agents (fondly referred to internally as COps) handling chat, communications, and complaints, to developing internal tooling for their efficiency. We also crucially manage forecasting supply and demand and scheduling COps to ensure optimal customer support.
+Why We’re Thinking in Data Products
+Our refreshed data strategy centers around the concept of the 'data product.' You may have encountered this term in the wider data industry – it's been a key topic of discussion for a while now, and for good reason. For Monzo, fully embracing this approach marks a significant shift. It’s not just a model or a dashboard — it’s any reusable, valuable data asset built with a clear purpose and consumer in mind.
+A data product could be a dbt model, a segmentation, a forecast, a regulatory report, or even a machine learning model — as long as it’s:
+Value-driven
+Designed for its users
+Treated as a living asset, with documentation, validation, and lifecycle planning
+In Operations, this matters because:
+Our business is evolving and expanding rapidly, generating a wealth of data assets. As Monzo grows, so does the complexity and volume of our data. We need a robust strategy to manage this ever-increasing data landscape effectively.
+We’re preparing for a major data platform migration, and aligning on what we’re building (not just how) helps us avoid dragging legacy complexity forward. We knew we couldn’t just lift and shift our existing complexity.
+The quality and consistency of our data were becoming a significant challenge. While dashboards were growing, trust in the underlying data wasn't consistent. Even technical stakeholders struggled to know which data models to use for what, leading to multiple sources of truth and conflicting insights. We use data to support teams, route tasks, monitor individual agent performance, intelligently route incoming customer chats, better look after our customers, and forecast demand for things like customer support hours — all of which require high-trust, well-structured data.
+We want teams to self-serve and innovate — which requires intuitive, reusable data products they can confidently build on.
+How We Approached It: Building a Durable Foundation
+We started by stepping back from our existing models, metrics, and pipelines to ask a foundational question:
+What are the core entities that define how Ops work — and how can we represent them cleanly and consistently in data?
+To answer that, we leaned on principles from Domain-Driven Design (DDD) — a well-established engineering approach that helps teams model systems around the real-world domains they serve. Instead of designing from tables or tools, DDD encourages:
+Modeling around real business concepts
+Clarifying domain boundaries
+Using a shared language between data practitioners and stakeholders
+To illustrate how we applied these principles and why this shift was necessary, let's dive into a common and crucial entity within Operations: the Support Task. These tasks represent individual pieces of work our COps handle – everything from complex payment investigations to addressing customer queries that require specialist input.
+The "Before" Picture: A Sprawling "Task" Data Model
+Previously, our understanding of a Support Task was fragmented and complex. Different teams across Monzo needed information about these tasks, and over time, the primary “Task” dbt model became a catch-all. It was directly updated and referenced by numerous teams, leading to a sprawling, ~300-column wide model that attempted to represent everything and nothing about a task. It often included not just task details, but also information about COps schedules, internal team structures, and other tangential data.
+This led to:
+Confusion: Data users were left wondering whether to use the core sprawling tasks model, or to use an upstream model (bad practice but in this case easier to work with).
+Inconsistency: With multiple teams directly interacting with and modifying the main tasks model, maintaining data quality and consistent definitions became a constant battle.
+Brittleness: Any change to the model had wide-ranging impacts, making development slow and risky.
+Bloat: A single model trying to serve too many purposes became unwieldy and inefficient.
+Here's a simplified view of our previous task data landscape:
+A detailed flowchart illustrating a data pipeline. On the left, 10 'Event' boxes (Event 1 to Event 10) feed into 'stg_task_events_prelim' which then feeds into 'stg_task_events'. 'Forecasting' is also an input to 'stg_task_events'. From 'stg_task_events', data flows to 'Task Events', 'Other Data, e.g., COp data', and 'Tasks'. 'Tasks' also feeds into 'Task Episodes'. All these intermediate steps ('Task Events', 'Other Data', 'Tasks', 'Task Episodes') lead to multiple 'Dashboard' outputs on the right, with 'Other Data' also leading to 'Other Teams'.
+The "After" Picture: A Refined Task Data Product
+With our new data product mindset and architectural patterns, we've fundamentally redesigned how we model the Support Task. The core idea is to build a highly trusted, modular, and concise data product that truly represents the task, enabling other teams to confidently reference it and build their specific use cases on top.
+Here’s our new approach:
+Single Event Model (task_events_fact): Using our new tooling, we build a single, comprehensive event model pulling all task events (status changes, assignments, notes added, etc.) from our bizops platform. This gives us a granular, immutable timeline of every event for a support task.
+Normalized Episodes Model (task_episodes): From this, we construct a normalised "episodes" model (our slowly changing dimension type 2 models!), delineating state changes and key interactions, telling the task's lifecycle story cleanly.
+Final State Conceptual Model (tasks_concept): Finally, a concise "final state" model captures the most recent, authoritative version of the task, containing only core task elements (e.g., task ID, current status, assignee, creation date, resolution date, type). This serves as a clear, unambiguous interface that purposely excludes external data (like COps schedules) belonging to other domain-specific data products.
+This new structure offers:
+Clarity: A single, clear tasks_concept model for definitive task information.
+Trust: Enhanced data quality and consistent definitions through standardised capture and encapsulated logic.
+Modularity & Reusability: tasks_concept acts as a lean, reliable building block for other teams to confidently join with their own domain models (e.g., Agent or COps Schedule).
+Efficiency: Smaller, focused models are easier to manage, query, and maintain.
+Backend Alignment: Our warehouse modeling now closely aligns with the data model in the backend, unifying our understanding of key entities without altering definitions or adversely coupling against other systems.
+Clear Ownership: Each data product now has crystal-clear ownership, defining who is responsible for maintaining and monitoring the models and data pipelines that support these crucial assets.
+Here's a diagram illustrating our new, streamlined approach:
+A straightforward flowchart illustrating a data transformation process. On the left, ten blue 'Event' boxes (Event 1 through Event 10) all lead into a purple 'task_event_timeline' box. This then connects sequentially to 'task_events_episodes', then 'tasks', and finally to a green 'tasks_concept' box on the far right.
+This move represents a fundamental shift from a monolithic, tightly coupled data model to a composable, domain-aligned, and highly trusted set of data products. It's how we're making data a powerful, intuitive asset for everyone at Monzo.
+Beyond the Task: Other Core Data Products
+The Task data product is just one example. Applying this DDD approach, we've also defined other core, reusable data products vital to Operations, such as:
+Scheduled Activity: This data product powers shift planning and supply forecasting for customer support, helping managers efficiently allocate staff during peak times.
+Agent: This data product models information about our customer operations agents, including their skills, availability, and performance, which is crucial for understanding team capacity and optimizing customer support routing.
+Each of these represents a real-world business object that Operations teams use every day. They encapsulate source events, business logic, and key relationships in a clean, reliable model — making them intuitive to use and easier to trust.
+We visualised these products in a domain map, grouped by the parts of the business they serve. This helped us spot duplication, align on terminology, and identify gaps in our current modelling. It also gave us a clear, shared blueprint to guide our data platform migration.
+A complex entity-relationship diagram showing interconnected business concepts. Key entities include 'Account' (many to one with 'User'), 'User' (one to many with 'Complaints', 'Customer Surveys/Feedback'), 'Tasks' (central, connected to 'Messages', 'Workflows', 'Help Page Engagement Events', 'Deadline Instance', 'Task Episodes/Activities', and 'Agents'). 'Task Episodes/Activities' connects to 'Capacity Plan' and 'Forecast', which then links to 'Scheduled Activity'. Relationships like one-to-one, one-to-many, many-to-one, and many-to-many are indicated by labels on the connecting lines. An 'Ownership Legend' at the bottom defines colour coding: blue for 'Self Serve', green for 'Task Management', red for 'Workforce Management', and black for 'Interface with Another Team'.
+These aren’t just models — they’re products:
+Modular building blocks for downstream use cases
+Designed with ownership, documentation, and reusability in mind
+Built to power reporting, forecasting, automation, and more
+Curious about Domain-Driven Design? Martin Fowler’s intro is a great place to start.
+Why It Matters
+This work isn’t just about cleaner diagrams or better names — it’s about enabling faster delivery, better decisions, and more resilient systems. It unlocks:
+Shared language: Everyone in Ops can now refer to the same concepts — reducing duplication, confusion, and inconsistent metrics.
+Cost Efficiency: We've seen substantial increases in data warehouse costs in the last year, growing unsustainably beyond our business growth. This new approach aims to streamline our data landscape, preventing unnecessary spend by consolidating redundant models and optimizing queries.
+Resilient migration: We have a blueprint for what matters — helping us refactor our dbt models without carrying forward legacy sprawl.
+Reusable building blocks: By focusing on core entities, we avoid one-off logic and build products that scale across teams and use cases.
+Product-level guarantees with clear ownership: Each data product comes with defined guarantees — an informal data contract covering things like freshness, uptime, ownership, and documentation. These give teams confidence they’re working with reliable, high-quality data.
+Empowered teams: With intuitive, documented data products and defined guarantees, more teams can self-serve, ship with speed, innovate, and build with confidence — without needing bespoke data support. Our COps managers can now confidently pull their own performance reports, and our forecasting teams can build more accurate demand models without needing bespoke data engineering support.
+What’s Next
+Over the next 6–12 months, we’re putting this thinking into practice:
+Refactoring models in dbt to align with the product architecture
+Assigning clear ownership and documentation to each product
+Embedding guarantees and quality checks into our development workflows
+Starting to treat our dbt project like a product itself — with lifecycle management, versioning, and user feedback loops
+This is more than just a cleanup — it’s a foundational shift in how we build and manage data across Operations.
+Final Thoughts
+Shifting to a data product mindset is a profound cultural and strategic change, not just for Analytics Engineers, but for the entire data discipline. It demands a fundamental rethinking of how we build, manage, and consume data. Such ambitious initiatives are only possible with broad alignment and strong backing from senior leadership. This vital support has been instrumental in enabling our work to be prioritised and executed at Monzo. The journey we've embarked on in Operations is just one powerful example of how we can bring this vision to life across Monzo.
+By focusing on value, clarity, and long-term usability, we’re building a foundation that scales — and helping make data one of Monzo’s most valuable assets.
+If you’re exploring a similar shift in your organisation, we’d love to hear how you’re approaching it — reach out or share your thoughts!
+Interested in a career at Monzo?
+If you're interested in working at Monzo, we have an open role for a Senior Analytics Engineer amongst other exciting Data roles. Don't forget to check out our career page with more info 🚀
+Image of Anna Selway
+Anna Selway
+Analytics Engineer
+
+Read more from Anna
+
+
+
+Site information and links
+Products
+Current accounts
+Business accounts
+Savings
+Credit cards
+Loans
+Investments
+Pensions
+Home Insurance
+Company
+Careers
+Press
+Blog
+Investor information
+Helping everyone belong
+Modern slavery statement
+Using Monzo
+Web app login
+Accessibility
+Life events
+Terms and Conditions
+Information about our current account services
+Savings hub
+Personal loan calculator
+Currency Converter
+1p Savings Challenge
+Help and security
+Help centre
+FAQs
+Fraud protection
+Security at Monzo
+Money worries
+FSCS information
+Site and app information
+Privacy notice
+Cookie notice
+Browser support policy
+Mobile operating system support policy
+App performance
+
+🇬🇧
+United Kingdom | English
+
+
+Monzo Bank Limited is a company registered in England and Wales (No.09446231). Monzo Bank Limited is authorised by the Prudential Regulation Authority and regulated by the Financial Conduct Authority and the Prudential Regulation Authority. Our financial Services Register number is 730427. Our address is Broadwalk House, 5 Appold St, London EC2A 2AG.
+
+
+
+
+
+Download on the App Store
+Get it on Google Play

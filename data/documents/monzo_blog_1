@@ -1,0 +1,125 @@
+Skip to Content
+PUBLISHED ON: 31 JULY 2025
+Published in: Technology
+Building a reactive Fraud Prevention Platform
+
+This blog post was accurate when we published it – head to monzo.com or your Monzo app for the most up to date information.
+
+Over the last year, we’ve re-designed our Fraud Prevention Platform at Monzo, and we want to share it with you!
+Customers lose life-changing amounts to fraud each year. In 2024, UK Finance estimated these losses hit £1.17 billion. Fraud could be a scammer tricking you into sending money over the phone, an elaborate romance scam, or the false promise of a get-rich-quick investment. This is an industry-wide problem… and we want to stop it, by investing in tech!
+Why is preventing fraud so challenging?
+
+Preventing fraud involves continuously shipping controls built to detect fraud. This sounds simple, but it’s a fast-moving landscape with no shortage of challenging obstacles. We should first get an understanding of the biggest problems before jumping into the system’s design.
+Fraudsters are extremely crafty
+Many people have the false assumption that fraudsters are clumsy. This stereotype might come from recalling phishing emails cluttered with misspellings and grammatical errors. Instead, think of Tinder Swindler, where a single person ran a massively complex romance scam that spanned years of a person’s life. These complex scams are carried out on thousands of people every day – that’s a level of scale that requires highly sophisticated, well funded technical teams, and that’s exactly what fraudsters are. Fraudsters are professionals, and catching them is no simple task.
+Fraudsters are extremely fast
+Tackling fraud can sometimes feel like playing ‘whack-a-mole’. Fraudsters come up with a way to trick people out of their cash, banks find a way to stop it, the fraudsters pivot to a new scam, and the cycle repeats… This means each time we ship a control to stop fraud, we have to watch closely to see where the fraudsters will pop up next.
+Fraud is an unbalanced problem
+For every 10,000 transactions at Monzo, only 1 of them is fraud. This makes spotting fraudulent transactions like finding a needle in a haystack! When we suspect a transaction is fraudulent, we take some kind of action to protect our customer. This might be that we conduct a fraud investigation, or show them a warning screen. Each time we are right, the customer is saved from losing their hard-earned cash. But each time we are wrong, the customer receives unnecessary friction when making a payment. This means we need to be strategic with when to intervene, and carefully balance user experience with customer safety.
+System Requirements
+
+Now that we have an appreciation for some of the big challenges in the domain, let’s discuss the attributes of an effective Fraud Prevention Platform.
+Our platform needs to:
+Scale with control complexity. Scams are becoming more and more complex, and so too will our controls in order to catch them. We should be able to scale the complexity of our controls without needing to uplift our platform.
+Let us ship fast. Fraudsters are fast to pivot, so we must be fast to react.
+Let us monitor our controls. We want to see how much fraud our controls are catching, or missing.
+Oh, and it must scale to millions of transactions per day, be fault tolerant, and have minimal latency on the payment hotpath… Let’s talk through how it works.
+System Design
+
+The system is responsible for processing payments by deciding whether they’re fraudulent, then intervening if necessary.
+Imagine we find that the value of a payment is indicative of fraud, so we build a machine learning model that takes the payment amount and it returns a prediction about whether the payment is fraudulent.
+Now when a transaction is made on the Monzo app, our platform takes the following four steps:
+Chooses which controls to run - We have lots of controls and they all run under different circumstances. For this example, we might only want to run our machine learning model if the payment is a bank transfer, as opposed to a card transaction.
+Loads features - Controls rely on features, in this case the payment amount. The next step is to compute these features so they can be passed as inputs to the model.
+Run controls - We pass all our feature values from the last step to our controls, and get them to make a prediction on whether the payment is fraudulent.
+Applies actions - If the controls want to intervene by raising an action, we raise it. Perhaps this involves stopping the payment and notifying the user that they’re being scammed.
+And that’s it! That’s how our platform tackles fraud. At a high-level it’s a fairly trivial four steps, but each is packed with complexity and trade-offs. See the below architecture diagram to understand the software involved to make this possible.
+System architecture of Monzo’s Fraud Prevention Platform
+Let's dive deeper into each of these components and the steps they’re responsible for.
+Engine
+The Engine is a microservice that’s built to process payments, and is deployed with a Controls Repository and Controls Executor inside it (these are just Go packages). It’s the heart of the system and is responsible for co-ordinating the four steps previously mentioned.
+Whilst Monzo’s codebase is primarily written in Go, we use Starlark (a dialect of Python) to write fraud controls. This forces them to be written as pure functions. These are functions where their output is dictated entirely by their input, and they don’t rely on or mutate any external state. Having our controls as pure functions lets us backtest over historic data to assess their performance before shipping. Each time a control is executed, we emit the inputs, outputs and any metadata on it to BigQuery. This lets us track the decisions our controls are making and monitor their performance.
+There are 3 types of controls, each with different responsibilities, and they are executed in a network like below.
+Rule network diagram, showing the 3 types of rules
+Detectors - These are typically machine learning models, responsible for predicting if fraud is occurring. They output the type of fraud and their confidence. In other words, they detect fraud but share no opinion on what to do about it.
+Action Control - These are the controls responsible for deciding how to intervene if fraud is detected. They do this by advocating for an action to be raised. There are many actions we can take for a customer falling victim to fraud, from a warning screen to a fraud investigation, so there are many of these controls.
+Action Selection Control - The control responsible for aggregating all the requested actions into a final decision. It gives us our final answer of whether we should intervene, and how!
+Having this network modularises our decisions into smaller chunks, letting us scale the complexity of our system. Any individual control in the network can be updated, replaced or removed, and the remainder of the network will continue operating the same.
+Feature Computation
+The Feature Loader is a microservice designed to compute features for fraud controls, using a Directed Acyclical Graph (DAG). Imagine we want to know how many transactions User A has sent to User B over the last 24 hours. We could compose a graph of features like below:
+DAG Diagram of calculating the number of transactions from User A to User B in 24 hours
+The DAG supports interacting with 3 types of features:
+Just in Time - A feature that requires the current context to be calculated. These features are computed on the fly, and the code to compute them lives inside the nodes of the DAG. This might be a feature like the reference used in the payment – you can only calculate this by having information about the payment currently happening.
+Near Real Time - A feature that should be up-to-date, but doesn’t need context to be computed. These features are usually pre-computed then cached, and at payment-time the result is read back. The code for computing these features is held in external services that are responsible for computing and updating the feature. An example of this might be the sum of a user’s spending that day. This feature doesn’t need knowledge of the current payment to be computed, so it can be computed asynchronously.
+Batch - A feature that does not need to be live nor near real time, and is typically refreshed on a periodic basis. The code responsible for computing these features is typically SQL and lives in our data store. An example of this might be something like the sum of a user’s spending over the last year. Computing this for every payment would be costly, so it gets computed in a batch and read at payment time.
+Feature types supported by the Feature Loader DAG
+Using a DAG makes feature computations faster, helping us maintain a slick user experience when making payments on the Monzo app. It also lets us build complex features incrementally, as each feature explicitly relies on well-defined predecessors. This lets us scale the complexity of our features.
+Besides being fast and scalable, it needs to be resilient. To avoid an error in a single node causing an entire request to fail, the service will return all the features it could successfully load, alongside the errors of any that failed. To prevent high-latency nodes from blocking critical paths, engineers can specify a timeout after which the DAG returns any features successfully resolved and skips computing the rest.
+Action Applier
+The Action Applier is the simplest but most consequential component of the system. Upstream services tell it to apply actions, then it applies them.
+It’s a stateful service, letting us lookup actions we’ve applied to previous payments or users. For example, if a user received a warning screen on their last transaction then perhaps it’s unlikely they need one on their next one too. We also emit data to BigQuery each time we raise an action, letting us monitor how many we are raising, and how effective they are at stopping fraud.
+Whilst applying actions is fairly simple, it has the potential to go very wrong. Imagine shipping a bug that causes every payment at Monzo to result in a fraud investigation. That would be a lot of investigating… To mitigate these kinds of incidents, each action can declare rate limits which, once surpassed, will prevent more actions being applied and alert an engineer. This is an important safeguard to prevent a small bug from causing huge customer harm.
+Interested in a career at Monzo?
+That’s our Fraud Prevention Platform in a nutshell! Monzo is all about tackling problems with tech, and fraud is no exception.
+If you're interested in working at Monzo, we are hiring for Engineers and Engineering Managers, and don't forget to check out our careers page for a full list of all our open roles 🚀
+Profile picture of Sam Kelsey
+Sam Kelsey
+Backend Engineer
+
+Read more from Sam
+
+
+
+Site information and links
+Products
+Current accounts
+Business accounts
+Savings
+Credit cards
+Loans
+Investments
+Pensions
+Home Insurance
+Company
+Careers
+Press
+Blog
+Investor information
+Helping everyone belong
+Modern slavery statement
+Using Monzo
+Web app login
+Accessibility
+Life events
+Terms and Conditions
+Information about our current account services
+Savings hub
+Personal loan calculator
+Currency Converter
+1p Savings Challenge
+Help and security
+Help centre
+FAQs
+Fraud protection
+Security at Monzo
+Money worries
+FSCS information
+Site and app information
+Privacy notice
+Cookie notice
+Browser support policy
+Mobile operating system support policy
+App performance
+
+🇬🇧
+United Kingdom | English
+
+
+Monzo Bank Limited is a company registered in England and Wales (No.09446231). Monzo Bank Limited is authorised by the Prudential Regulation Authority and regulated by the Financial Conduct Authority and the Prudential Regulation Authority. Our financial Services Register number is 730427. Our address is Broadwalk House, 5 Appold St, London EC2A 2AG.
+
+
+
+
+
+Download on the App Store
+Get it on Google Play

@@ -1,0 +1,116 @@
+Skip to Content
+PUBLISHED ON: 3 SEPTEMBER 2025
+Published in: Technology
+Beyond the Last Click: How Monzo Measures CRM’s True Impact
+
+This blog post was accurate when we published it – head to monzo.com or your Monzo app for the most up to date information.
+
+At Monzo, Customer Relationship Management (CRM) plays a crucial role in helping our customers get the most out of their money. Whether it’s nudging someone to sort their salary, save for a holiday, or explore a new feature, we treat each message as a moment to build trust and deliver real value, not just drive clicks.
+If you’ve ever worked in CRM, you’ve probably faced this problem: you send a great message, maybe an email, push notification, or in-app nudge, and a customer converts. How can you know whether the message you sent directly caused that conversion*?
+*Note: Consider a conversion as a customer taking the intended action based on the contents of the message. This could be opening up Savings pots with us or using the Salary Sorter.
+Did they convert because of the push? Or the email they saw earlier? Would they have converted anyway without being sent a message? Figuring out the real impact of our messages to customers sits at the heart of CRM measurement.
+To solve this, the CRM Data team is building a new way to accurately measure the real impact of our marketing messages. We combine two powerful methods: universal holdouts and a Last Touch Attribution model with a top-down approach that makes sure the total impact attributed to individual messages matches the overall impact measured by our holdouts, so we never over or underestimate our contribution.
+Getting this right isn't just a technical challenge, it's fundamental for how we grow. We want to ensure we’re being effective, but also that we aren’t over-communicating or diluting the customer experience. If we don't truly understand what adds value and what customers are interested in, we might spend time and effort on messages that don’t resonate with our customers or drive them to miss out on more relevant communications altogether. 
+The Hidden Costs: Why Individual Experiments Don't Tell the Whole Story
+A/B experimentation is a widely adopted industry standard, which we leverage within CRM to improve our messaging strategy and measure our impact. But CRM experiments have their limits when we try to understand the full effect of many marketing messages running at the same time. 
+A common challenge occurs when we see multiple messages through different channels to the same customer trying to achieve similar goals (Illustration 1). 
+You, a Monzo customer, receive an email about a new product, a push notification reminding you about that same product, and then a carousel in the app within a short timespan. 
+If you then do the intended action (e.g. open a Savings Pot or explore the Trends tab and set up a budget goal), how do we fairly decide which message gets attributed the conversion?
+It is hard to untangle the individual effects and get a full understanding of how effective our messages are overall.
+Illustration of multiple messages trying to achieve similar goals
+Individual experiment uplifts are non additive. Even if we have perfectly designed our experiment audiences, we cannot simply add them up and expect this to match the long term holdout result. We need to consider issues such as variance in the experiment results, seasonal effects, short term vs long term effects and interaction effects between the many experiments we run [source].
+Many of our messages are set up based on trigger events, meaning they're sent automatically based on what our customers do or where they are in their Monzo journey. Think of messages for new customers, reminders to re-engage, or loyalty programs. The static nature of many A/B tests isn't good at capturing the continuous and changing impact of these programs, showing why we need a stronger, more flexible way to measure things.
+To get past the limits of traditional ways of measuring, the CRM Data team is building a system that brings together the reliability of universal holdouts with the detailed insights of attribution models.
+Our Guiding Star: Universal Holdouts for Real Impact
+At the heart of Monzo's long term measurement strategy are universal holdouts, a process in which we randomly select 2.5% of our user base to not receive any CRM marketing communications for a period of 6 months, with the remaining user base receiving them. Universal holdouts are seen as the most reliable way to measure the true, long-term impact of our messages, allowing us to capture lagging effects, understand long term effects and handle interaction effects across experiments [source].
+By comparing what this holdout group does with what users who do get messages do, Monzo can accurately figure out the real new conversions that are directly because of our messages. However they don't provide us with the granularity of which specific messages or touchpoints contributed to that total. This lack of detail means that we can't easily spot the best-performing individual messages, channels, or programs to make them even better.
+The Last Touch Attribution Model: Our Starting Point for Identifying Eligible Touchpoints
+To kickstart our journey, we’re building a Last Touch attribution model to set the foundations that allow us to iterate towards more advanced approaches, such as Multi Touch Attribution [source] or Shapley Values Attribution [source] which offer richer insights at the cost of added complexity. 
+While it has limitations, it's simple to implement, easy to explain, and gives us a clear, consistent baseline for building and testing our hybrid framework. In order to leverage Last Touch attribution, we first have to carefully define key concepts:
+Mapping message goal to tracked events: ensure we only map conversions from messages whose goal was to drive that specific action.
+What counts as a valid touchpoint: only including interactions that clearly show you engaged with a CRM message. Valid touchpoints include opening or clicking on a push notification, an email or a carousel for example.
+A lookback window for attribution: the number of days we look back to see if a message interaction is still relevant to a conversion. These windows aren't fixed; they change depending on the product and the conversion, reflecting how different customer journeys happen and to embed our approach with more rigorous business logic. For example, the lookback window for taking up a Loans product might be longer than for creating a Savings Pot.
+Monzo's Top-Down Approach: Ensuring Attribution Reflects Reality
+Using a top-down approach helps us bridge the gap between long-term testing (Holdout) and the granular insights (Last Touch) we need to improve specific messages. This stops us from overestimating or underestimating the true contribution of our messages.
+Here's how we do it, step by step:
+Find the Real Baseline: We start by getting the key conversion numbers from our universal holdout. This gives us the most reliable estimate of the true new conversions driven by our messages across all users. For example, let's say the universal holdout tells us there were 100 new conversions because of our messages.
+Apply the Attribution Logic: Next, we apply an attribution model to identify which conversions within a specified time window had a touch point with CRM campaigns. For instance, this step might find 200 conversions linked to our messages.
+Calculate the Incrementality Factor: This is a crucial step. We figure out an incrementality factor to make the attributed actions match the unbiased estimate from the holdout. This factor corrects for attribution models, which tend to claim too much. Following our example, if the holdout gives us 100 new conversions and the attribution model finds 200, the incrementality factor would be 0.5 (100 divided by 200).
+Adjust the Attributed Actions: Finally, we apply this scaling factor evenly to all the attributed conversions. This makes sure that when we add up all the conversions attributed to each message, it exactly matches the total impact from the holdout. If Message A first claimed 150 conversions and Message B claimed 50, after applying the 0.5 factor, Message A would claim 75 and Message B 25, adding up to 100 new conversions.
+Think of this like focusing a camera: if the picture is a bit off, fine-tuning it brings everything into sharp focus. By adjusting our attribution to reflect the real new actions, we ensure we see the true impact of our messages – not too much, not too little.
+To show you how this works, here's a simple table:
+Table that shows the steps taken for holdouts. Steps on the left hand column, what we do per step in the middle column, and the example outcome in the right hand column
+The Impact: Helping Our Teams and Driving Growth
+
+Our hybrid approach gives Monzo a continuous and accurate view of CRM’s true incremental impact. This shared understanding changes how we understand and improve CRM, moving us beyond isolated views to a connected, useful picture of all our messages.
+Marketing and CRM teams now use this insight to guide their planning, with a clearer view of where CRM delivers the most value, which initiatives need to be prioritised and a better forecast of the growth it can drive.
+For Product and CRM teams, it’s easier to see which journeys perform best and how they compare across products. We’re already identifying the critical steps in retargeting journeys that deliver the greatest impact and working to optimise them.
+Across Product, Marketing, and CRM, we have a more consistent view of monthly and quarterly performance, making it easier to understand what’s driving growth across the domain. This shared perspective enables better cross-discipline discussions about what’s working well and where we need to improve.
+By giving teams a trusted, company-wide view of impact, CRM Data has made CRM performance a part of how Monzo operates day to day, helping us plan and manage the entire messaging system proactively.
+Conclusion: Building a Smarter, More Transparent CRM at Monzo
+Monzo is always looking to improve, so this solution is constantly evolving. Future versions will look into more advanced ways of considering eligible touchpoints from messages, like Multi Touch Attribution or Shapley Values Attribution. This ongoing work includes building data systems that can handle more information, expanding our data models for different conversions, and setting up dedicated dashboards to explore how each product contributes.
+It's tricky to accurately measure the real impact of messages in a world where customers interact with so many things. Simple, single-campaign tests, while useful short-term measures of campaign performance, often fall short because messages and experiments interact with each other and have lagging effects. Single experiments also make it hard to measure the impact of trigger based activities over time. Monzo has tackled this by creating a hybrid approach that combines the reliable, unbiased measurement of universal holdouts with the detailed insights of an attribution model that's adjusted for real impact.
+By holding ourselves to this level of rigour and transparency, we’re not just improving CRM performance, we’re staying true to Monzo’s mission of building a bank that truly works for our customers. This commitment to precise measurement not only makes our messaging operations more efficient and impactful but more importantly, it helps us create a CRM experience that’s genuinely useful, timely, and relevant for our customers, while helping us foster long-term relationships with customers who love using Monzo.
+Interested in a career at Monzo?
+Monzo is always pushing the boundaries of data science in banking. If you're passionate about solving complex data challenges and building smarter, more transparent customer experiences, we encourage you to explore opportunities to join us on this journey on our careers page.
+Image of Rodrigo Baptista
+Rodrigo Baptista
+Senior Data Scientist
+
+Read more from Rodrigo
+
+
+
+Site information and links
+Products
+Current accounts
+Business accounts
+Savings
+Credit cards
+Loans
+Investments
+Pensions
+Home Insurance
+Company
+Careers
+Press
+Blog
+Investor information
+Helping everyone belong
+Modern slavery statement
+Using Monzo
+Web app login
+Accessibility
+Life events
+Terms and Conditions
+Information about our current account services
+Savings hub
+Personal loan calculator
+Currency Converter
+1p Savings Challenge
+Help and security
+Help centre
+FAQs
+Fraud protection
+Security at Monzo
+Money worries
+FSCS information
+Site and app information
+Privacy notice
+Cookie notice
+Browser support policy
+Mobile operating system support policy
+App performance
+
+🇬🇧
+United Kingdom | English
+
+
+Monzo Bank Limited is a company registered in England and Wales (No.09446231). Monzo Bank Limited is authorised by the Prudential Regulation Authority and regulated by the Financial Conduct Authority and the Prudential Regulation Authority. Our financial Services Register number is 730427. Our address is Broadwalk House, 5 Appold St, London EC2A 2AG.
+
+
+
+
+
+Download on the App Store
+Get it on Google Play
