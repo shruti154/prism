@@ -3,9 +3,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# API
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-NEWS_API_KEY = os.getenv("NEWS_API_KEY")
+# Try Streamlit secrets first (cloud), fall back to .env (local)
+try:
+    import streamlit as st
+    ANTHROPIC_API_KEY = st.secrets.get("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    NEWS_API_KEY = st.secrets.get("NEWS_API_KEY") or os.getenv("NEWS_API_KEY")
+except Exception:
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+    NEWS_API_KEY = os.getenv("NEWS_API_KEY")
 
 # Paths — absolute so they work from anywhere
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

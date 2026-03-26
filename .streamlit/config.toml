@@ -1,0 +1,18 @@
+[theme]
+primaryColor = "#4A90D9"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#1E2329"
+textColor = "#FAFAFA"
+
+[server]
+headless = true
+```
+
+**Save with `Cmd + S`**
+
+---
+
+Now we need to update `.gitignore` to make sure secrets never get pushed. Open `.gitignore` and add these lines:
+```
+.streamlit/secrets.toml
+prism_tracker.db
