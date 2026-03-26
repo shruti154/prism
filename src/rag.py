@@ -39,56 +39,102 @@ LIVE NEWS:
 Question: {query}
 """
 
+MEDIA_PROMPT = """You are Prism, a senior media and publishing analyst.
+You have been given real excerpts from media industry documents and live news.
+
+Answer the question using ONLY the provided context.
+Be specific — cite exact figures, percentages, and facts.
+Be concise — no padding, no generic statements.
+
+Format exactly like this:
+
+**Summary:** (2-3 sentences with specific facts and figures)
+
+**Key Insights:**
+- (specific insight with exact data point)
+- (specific insight with exact data point)
+- (specific insight with exact data point)
+
+**Live Signals:** (what live news adds — or "No relevant live signals found")
+
+**Sources:** (which documents contained this information)
+
+DOCUMENT EXCERPTS:
+{doc_context}
+
+LIVE NEWS:
+{news_context}
+
+Question: {query}
+"""
+
 def load_client():
-    """Load ChromaDB client."""
-    print("Loading Prism's knowledge base...")
+    """Load fintech ChromaDB client."""
+    print("Loading Prism's fintech knowledge base...")
     chroma_client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
     collection = chroma_client.get_or_create_collection("prism_fintech")
     print(f"Knowledge base loaded. {collection.count()} chunks available.")
     return collection
 
 def query(question: str) -> str:
-    """Query Prism using ChromaDB retrieval and Claude synthesis."""
-
-    # Step 1 — Retrieve relevant chunks from ChromaDB
+    """Query Prism fintech knowledge base."""
     collection = load_client()
     results = collection.query(
         query_texts=[question],
         n_results=TOP_K_RESULTS
     )
 
-    print(f"DEBUG - ChromaDB returned {len(results['documents'][0])} chunks")
-    print(f"DEBUG - CHROMA_PERSIST_DIR is: {CHROMA_PERSIST_DIR}")
-    print(f"DEBUG - Collection count: {collection.count()}")
-    print(f"DEBUG - First chunk preview: {results['documents'][0][0][:100] if results['documents'][0] else 'EMPTY'}")
-
-    # Format retrieved chunks
     doc_context = ""
     for i, doc in enumerate(results['documents'][0]):
         doc_context += f"\n[Excerpt {i+1}]:\n{doc}\n"
 
-    print(f"DEBUG - doc_context length: {len(doc_context)}")
-
-    # Step 2 — Get live news
     search_query = question.replace("What are", "").replace("What does", "").replace("How is", "").replace("?", "").strip()[:50]
     news_articles = fetch_news(search_query)
     news_context = format_news_context(news_articles)
 
-    # Step 3 — Synthesise with Claude
     client = AnthropicClient(api_key=ANTHROPIC_API_KEY)
-
-    final_prompt = ANALYST_PROMPT.format(
-        doc_context=doc_context,
-        news_context=news_context,
-        query=question
-    )
-
     message = client.messages.create(
         model=LLM_MODEL,
         max_tokens=1024,
-        messages=[{"role": "user", "content": final_prompt}]
+        messages=[{"role": "user", "content": ANALYST_PROMPT.format(
+            doc_context=doc_context,
+            news_context=news_context,
+            query=question
+        )}]
+    )
+    return message.content[0].text
+
+def query_media(question: str) -> str:
+    """Query Prism media knowledge base."""
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    MEDIA_CHROMA_DIR = os.path.join(BASE_DIR, "chroma_media_db")
+
+    chroma_client = chromadb.PersistentClient(path=MEDIA_CHROMA_DIR)
+    collection = chroma_client.get_or_create_collection("prism_media")
+
+    results = collection.query(
+        query_texts=[question],
+        n_results=TOP_K_RESULTS
     )
 
+    doc_context = ""
+    for i, doc in enumerate(results['documents'][0]):
+        doc_context += f"\n[Excerpt {i+1}]:\n{doc}\n"
+
+    search_query = question.replace("What are", "").replace("What does", "").replace("How is", "").replace("?", "").strip()[:50]
+    news_articles = fetch_news(search_query)
+    news_context = format_news_context(news_articles)
+
+    client = AnthropicClient(api_key=ANTHROPIC_API_KEY)
+    message = client.messages.create(
+        model=LLM_MODEL,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": MEDIA_PROMPT.format(
+            doc_context=doc_context,
+            news_context=news_context,
+            query=question
+        )}]
+    )
     return message.content[0].text
 
 if __name__ == "__main__":
