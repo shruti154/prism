@@ -1,108 +1,100 @@
-import streamlit as st
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import chromadb
-from llama_index.core import VectorStoreIndex, Settings
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from llama_index.llms.anthropic import Anthropic
+from anthropic import Anthropic as AnthropicClient
 from config import (
     ANTHROPIC_API_KEY, CHROMA_PERSIST_DIR,
-    EMBED_MODEL, LLM_MODEL, TOP_K_RESULTS
+    LLM_MODEL, TOP_K_RESULTS
 )
 from agent import fetch_news, format_news_context
 
-ANALYST_PROMPT = """You are Prism, a senior fintech analyst assistant.
-You have access to two sources of information:
+ANALYST_PROMPT = """You are Prism, a senior fintech analyst.
+You have been given real excerpts from fintech company documents and live news.
 
-1. DOCUMENT KNOWLEDGE: Excerpts from real fintech company reports and blogs
-2. LIVE NEWS: Recent news articles fetched in real time
+Your job is to answer the question using ONLY the provided context.
+Be specific — cite exact figures, percentages, and facts from the documents.
+Be concise — no padding, no generic statements.
 
-Using BOTH sources, answer the following question in a structured 
-analyst brief.
+Format exactly like this:
 
-Format your response exactly like this:
-
-**Summary:** (2-3 sentences combining document knowledge and live signals)
+**Summary:** (2-3 sentences with specific facts and figures)
 
 **Key Insights:**
-- (insight 1)
-- (insight 2)
-- (insight 3)
+- (specific insight with exact data point)
+- (specific insight with exact data point)
+- (specific insight with exact data point)
 
-**Live Signals:** (what the news is saying right now)
+**Live Signals:** (what live news adds — or "No relevant live signals found")
 
-**Source Context:** (mention which documents and news sources informed this)
+**Sources:** (which documents contained this information)
 
-Important: Clearly distinguish between what comes from documents 
-vs what comes from live news. Never guess or hallucinate.
-
-DOCUMENT CONTEXT:
+DOCUMENT EXCERPTS:
 {doc_context}
 
-LIVE NEWS CONTEXT:
+LIVE NEWS:
 {news_context}
 
 Question: {query}
 """
 
-@st.cache_resource
-def load_index():
-    """Load the existing ChromaDB index."""
+def load_client():
+    """Load ChromaDB client."""
     print("Loading Prism's knowledge base...")
-    embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
-    llm = Anthropic(model=LLM_MODEL, api_key=ANTHROPIC_API_KEY)
-    Settings.embed_model = embed_model
-    Settings.llm = llm
-
     chroma_client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
-    chroma_collection = chroma_client.get_or_create_collection("prism_fintech")
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    index = VectorStoreIndex.from_vector_store(vector_store)
-    print("Knowledge base loaded.")
-    return index
+    collection = chroma_client.get_or_create_collection("prism_fintech")
+    print(f"Knowledge base loaded. {collection.count()} chunks available.")
+    return collection
 
 def query(question: str) -> str:
-    """Query Prism using both RAG and live news."""
-    
-    # Step 1 — Get document context from RAG
-    index = load_index()
-    query_engine = index.as_query_engine(
-        similarity_top_k=TOP_K_RESULTS
+    """Query Prism using ChromaDB retrieval and Claude synthesis."""
+
+    # Step 1 — Retrieve relevant chunks from ChromaDB
+    collection = load_client()
+    results = collection.query(
+        query_texts=[question],
+        n_results=TOP_K_RESULTS
     )
-    doc_response = query_engine.query(question)
-    doc_context = str(doc_response)
-    
-    # Step 2 — Get live news context from agent
-    # Extract short search query from the full question
+
+    print(f"DEBUG - ChromaDB returned {len(results['documents'][0])} chunks")
+    print(f"DEBUG - CHROMA_PERSIST_DIR is: {CHROMA_PERSIST_DIR}")
+    print(f"DEBUG - Collection count: {collection.count()}")
+    print(f"DEBUG - First chunk preview: {results['documents'][0][0][:100] if results['documents'][0] else 'EMPTY'}")
+
+    # Format retrieved chunks
+    doc_context = ""
+    for i, doc in enumerate(results['documents'][0]):
+        doc_context += f"\n[Excerpt {i+1}]:\n{doc}\n"
+
+    print(f"DEBUG - doc_context length: {len(doc_context)}")
+
+    # Step 2 — Get live news
     search_query = question.replace("What are", "").replace("What does", "").replace("How is", "").replace("?", "").strip()[:50]
     news_articles = fetch_news(search_query)
     news_context = format_news_context(news_articles)
-    
-    # Step 3 — Synthesise both with Claude
-    from anthropic import Anthropic as AnthropicClient
+
+    # Step 3 — Synthesise with Claude
     client = AnthropicClient(api_key=ANTHROPIC_API_KEY)
-    
+
     final_prompt = ANALYST_PROMPT.format(
         doc_context=doc_context,
         news_context=news_context,
         query=question
     )
-    
+
     message = client.messages.create(
         model=LLM_MODEL,
         max_tokens=1024,
         messages=[{"role": "user", "content": final_prompt}]
     )
-    
+
     return message.content[0].text
 
 if __name__ == "__main__":
     questions = [
+        "What was Revolut's revenue in 2023 and how did it grow?",
         "What are the key risks facing UK neobanks?",
-        "What does it mean that Revolut is now a bank in the UK?",
     ]
 
     for q in questions:
@@ -110,4 +102,3 @@ if __name__ == "__main__":
         print(f"QUESTION: {q}")
         print('='*60)
         print(query(q))
-        print()
